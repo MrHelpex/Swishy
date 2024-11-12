@@ -1,0 +1,682 @@
+  <!DOCTYPE html>
+  <html lang="en">
+
+  <head>
+      <link href="https://db.onlinewebfonts.com/c/a83356d725f309d4c24ac2daca70cd64?family=MuseoSansRounded-300" rel="stylesheet">
+      <link href="https://db.onlinewebfonts.com/c/a07bcad627607b6777616f8e058e8917?family=MuseoSansRounded-500" rel="stylesheet">
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+      <meta name="apple-mobile-web-app-capable" content="yes">
+      <meta name="mobile-web-app-capable" content="yes">
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+      <link rel="apple-touch-icon" href="swishy.png">
+      <meta name="apple-mobile-web-app-title" content="Swishify">
+      <title>transaktionsdetaljer</title>
+      <style>
+          body {
+              margin: 0;
+              padding: 0;
+              height: 100vh;
+              width: 100vw;
+              overflow: hidden;
+              background-size: cover;
+              background-repeat: no-repeat;
+              background-position: center center;
+              position: relative;
+          }
+
+          .display-label {
+              color: white;
+              padding: 1vw;
+              margin: 1vw 0;
+              z-index: 1000;
+              position: absolute;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 80vw;
+              text-align: center;
+              font-family: "MuseoSansRounded-100";
+          }
+
+          #displayDate {
+              bottom: 38.5vh;
+              color: #818388;
+              font-family: "MuseoSansRounded-300";
+              font-size: 3.9vw;
+          }
+
+          #displayName,
+          #displayUppercaseName {
+              bottom: 32.55vh;
+              font-family: "MuseoSansRounded-500";
+              color: #ffffff;
+              font-weight: 500;
+          }
+
+          #displayName {
+              font-size: 6.15vw;
+          }
+
+          #displayUppercaseName {
+              font-size: 4.1vw;
+          }
+
+          #displayTelefonnummer {
+              bottom: 29.8vh;
+              font-family: "MuseoSansRounded-300";
+              font-size: 4.08vw;
+              color: #818388;
+          }
+
+          #displayBelopp {
+              bottom: 21.68vh;
+              font-size: 10vw;
+              font-weight: 500;
+              font-family: "MuseoSansRounded-500";
+          }
+
+          #displayMeddelande {
+              bottom: 16.5vh;
+              font-size: 3.8vw;
+              font-weight: 500;
+              font-family: "MuseoSansRounded-500";
+          }
+
+          .green-image-container {
+              position: relative;
+              display: inline-block;
+              width: 100vw;
+              overflow: hidden;
+          }
+
+          #particleCanvas {
+              position: absolute;
+              top: 0;
+              left: 0;
+              z-index: 3;
+              width: 100%;
+              height: 100%;
+          }
+
+          #canvas,
+          #particleCanvas,
+          #foreground,
+          #transactionFrame {
+              position: absolute;
+              top: 0;
+              left: 0;
+          }
+
+          #foreground {
+              width: 39.2vw;
+              object-fit: cover;
+              pointer-events: none;
+              z-index: 2;
+          }
+
+          #transactionFrame {
+              display: none;
+              width: 100vw;
+              height: 100vh;
+              border: none;
+              position: fixed;
+              z-index: 1000;
+          }
+
+          #displayTransactionNumber {
+              position: absolute;
+              bottom: 17.9vh;
+              left: 75.8%;
+              transform: translateX(-50%);
+              font-family: "MuseoSansRounded-300";
+              color: white;
+              font-size: 4vw;
+              z-index: 10;
+          }
+
+          /* Fullscreen bankID image */
+          #bankIDImage {
+              position: fixed;
+              top: 1.1%;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              object-fit: cover;
+              z-index: 1000;
+              pointer-events: none; /* Make sure it doesn't interfere with other clickable elements */
+          }
+
+          /* Media query for smaller screens */
+          @media (max-width: 600px) {
+              .display-label {
+                  font-size: 3vw;
+              }
+          }
+      </style>
+  </head>
+
+  <body>
+    
+      <button id="closeButton" style="position: fixed; top: 740px; right: 15px; padding: 20px 15px; font-size: 16px; cursor: pointer; z-index: 2000; background: transparent; border: none; color: transparent;">Close</button>
+
+      <canvas id="canvas" style="position: absolute; top: 0; left: 0; z-index: 1;"></canvas>
+      <canvas id="particleCanvas" style="position: absolute; top: 0; left: 0; z-index: 2;"></canvas>
+
+      <div id="displayDate" class="display-label"></div>
+      <div id="displayName" class="display-label"></div>
+      <div id="displayUppercaseName" class="display-label"></div>
+      <div id="displayTelefonnummer" class="display-label"></div>
+      <div id="displayBelopp" class="display-label"></div>
+      <div id="displayMeddelande" class="display-label"></div>
+      <div id="displayTransactionNumber" class="display-label"></div>
+
+      <!-- Fullscreen bankID image -->
+      <img id="bankIDImage" src="images/BankID-tag.png" alt="BankID Tag">
+  </body>
+  <script>
+    
+    // Prevent default scrolling behavior
+    function preventScroll(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+
+    // Listen for scroll events on the window and prevent them
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+
+    // Optionally, to completely disable scrolling, including keys like Arrow keys, Page Up/Down, and Spacebar:
+    window.addEventListener('keydown', function(e) {
+      if (['Space', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) > -1) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContext();
+
+      // Function to generate a random transaction number
+      function generateTransactionNumber() {
+        let number = '';
+        for (let i = 0; i < 16; i++) {
+          number += Math.floor(Math.random() * 10); // Generate a random digit
+          if ((i + 1) % 4 === 0 && i < 15) {
+            number += ' '; // Add space after every 4 digits
+          }
+        }
+        return number;
+      }
+
+      
+
+      // Get URL parameters
+      const name = htmlDecode(getParameterByName('mottagare'));
+      const telefonnummer = htmlDecode(getParameterByName('telefonnummer'));
+      const belopp = htmlDecode(getParameterByName('belopp')) + " kr";
+      const meddelande = htmlDecode(getParameterByName('meddelande'));
+      const displayUppercaseNameValue = htmlDecode(getParameterByName('displayUppercaseName')); // Get the undertext value
+
+      // Get the displayTransactionNumber element
+      const transactionNumberElement = document.getElementById('displayTransactionNumber');
+
+      // Check if telefonnummer includes '123'
+      if (telefonnummer.includes('123')) {
+        const transactionNumber = generateTransactionNumber(); // Generate transaction number
+        transactionNumberElement.textContent = transactionNumber; // Show transaction number
+        transactionNumberElement.style.display = 'block'; // Ensure it's visible
+      } else {
+        transactionNumberElement.style.display = 'none'; // Hide the transaction number element
+      }
+
+      // Set background image based on the telefonnummer
+      if (telefonnummer.includes('123')) {
+        document.body.style.backgroundImage = "url('images/company.jpg')";
+      } else {
+        document.body.style.backgroundImage = "url('images/transaction.jpg')";
+      }
+
+      // Check if background image is 'company.jpg'
+      const backgroundImage = window.getComputedStyle(document.body).backgroundImage;
+      const isForetagImage = backgroundImage.includes('images/company.jpg');
+
+      // Preload sounds
+      const soundFiles = ['a3', 'b2', 'b3', 'c3', 'c4', 'd3', 'e3', 'f3', 'g3', 'Swish_payment_confirmation_glitter_loop'];
+      const audioBuffers = {};
+      let trailSoundLoopBuffer = null;
+      let trailSoundSource = null;
+      let trailSoundGainNode = null;
+      let interactionStarted = false;
+      const interactionDelay = 300; // Delay in milliseconds before playing the sound
+
+      // Decode audio and preload trail sound
+      function decodeAudio(file) {
+        const filePath = `sounds/${file}.mp3`;
+        fetch(filePath)
+          .then(response => response.arrayBuffer())
+          .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+          .then(audioBuffer => {
+            audioBuffers[file] = audioBuffer;
+            if (file === 'Swish_payment_confirmation_glitter_loop') {
+              trailSoundLoopBuffer = audioBuffer;
+            }
+          })
+          .catch(e => console.error('Error with decoding audio data: ', e));
+      }
+
+      // Add the new trail sound file to the list
+      soundFiles.push('Swish_payment_confirmation_glitter_loop');
+      soundFiles.forEach(decodeAudio);
+
+      function playSound(file) {
+        const soundToPlay = audioBuffers[file];
+        if (soundToPlay) {
+          const soundSource = audioContext.createBufferSource();
+          soundSource.buffer = soundToPlay;
+          soundSource.connect(audioContext.destination);
+          soundSource.start(0);
+        }
+      }
+
+      function getParameterByName(name) {
+        const url = window.location.search;
+        name = name.replace(/[\[\]]/g, '\\$&');
+        const regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+          results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, ' '));
+      }
+
+      function htmlDecode(input) {
+        const e = document.createElement('textarea');
+        e.innerHTML = input;
+        return e.childNodes.length === 0 ? "" : e.childNodes[0].nodeValue;
+      }
+
+      const currentDate = new Date();
+      const months = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
+      const formattedDate = `${currentDate.getDate()} ${months[currentDate.getMonth()]} ${currentDate.getFullYear()}, kl ${("0" + currentDate.getHours()).slice(-2)}:${("0" + currentDate.getMinutes()).slice(-2)}`;
+
+      document.getElementById('displayDate').textContent = formattedDate;
+      document.getElementById('displayName').textContent = name;
+      document.getElementById('displayTelefonnummer').textContent = telefonnummer;
+      document.getElementById('displayBelopp').textContent = belopp;
+      document.getElementById('displayMeddelande').textContent = (meddelande && meddelande !== "N/A") ? meddelande : "";
+
+      // Set the displayUppercaseName using the retrieved value from undertext-input
+      const displayUppercaseNameElement = document.getElementById('displayUppercaseName');
+      displayUppercaseNameElement.textContent = displayUppercaseNameValue.toUpperCase(); // Convert to uppercase
+
+      // Adjust font size based on input length
+      var nameElement = document.getElementById('displayName');
+      if (nameElement.textContent.length > 20) {
+        nameElement.style.fontSize = '5.2vw'; // Replace with actual font size
+      }
+
+      // Adjust styles if using company image
+      if (isForetagImage) {
+        document.getElementById('displayDate').style.bottom = '49.25vh';
+        document.getElementById('displayName').style.bottom = '43.5vh';
+        document.getElementById('displayTelefonnummer').style.bottom = '38.1vh';
+        document.getElementById('displayBelopp').style.bottom = '29.95vh';
+        document.getElementById('displayMeddelande').style.bottom = '25.5vh';
+
+        displayUppercaseNameElement.style.bottom = '41vh'; // Position for uppercase display name
+      }
+
+      const canvas = document.getElementById("particleCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      // Adjust particle system height based on isForetagImage
+      let particleSystemHeight = isForetagImage ? canvas.height / 2.4 : canvas.height / 1.9;
+
+
+
+
+
+      class FlowingParticle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * particleSystemHeight;
+
+                // Base radius between 2 and 6
+                this.radius = Math.random() * 4 + 2; 
+                if (Math.random() < 0.1) { 
+                    this.radius += Math.random() * 2;
+                }
+
+                // Further increased base speedY to move particles up faster
+                this.baseSpeedY = -0.45; // Upward base speed increased further
+                this.speedX = (Math.random() - 0.3) * 0.25; // Small rightward drift
+
+                // Increased chance for extreme speed for a few particles (20% chance)
+                if (Math.random() < 0.2) { // Increased chance to assign a fast speed
+                    this.speedY = -Math.random() * 1.5 - 1.0; // Faster upward speed
+                    this.isFast = true;
+                } else {
+                    this.speedY = this.baseSpeedY - (Math.random() * 0.3);
+                    this.isFast = false;
+                }
+
+                // Randomly choose blur and opacity
+                this.isBlurred = Math.random() < 0.5;
+                if (this.isBlurred) {
+                    this.blur = Math.random() * 2.0 + 1;
+                    this.opacity = Math.random() < 0.05 
+                        ? Math.random() * 0.2 + 0.3 
+                        : Math.random() * 0.4 + 0.6; 
+                } else {
+                    this.blur = Math.random() * 0.7 + 0.3;
+                    this.opacity = Math.random() * 0.4 + 0.4;
+                }
+
+                this.isShrinking = Math.random() < 0.15;
+                this.isFading = Math.random() < 0.2;
+                this.shrinkRate = 0.02;
+                this.fadingSpeed = this.isFading ? Math.random() * 0.02 + 0.01 : 0;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.filter = `blur(${this.blur}px)`;
+
+                const gradient = ctx.createRadialGradient(this.x, this.y, this.radius / 4, this.x, this.y, this.radius);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity})`);
+                gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                const turbulenceFactor = this.isFast ? 0.25 : 0.07;
+
+                // Apply turbulence
+                this.speedX += (Math.random() - 0.5) * turbulenceFactor;
+                this.speedY += (Math.random() - 0.5) * 0.015;
+
+                // Constrain speed limits
+                this.speedX = Math.max(-0.6, Math.min(this.speedX, 1.1)); // Slightly faster drift to the right
+                this.speedY = Math.max(-2.0, Math.min(this.speedY, -0.1)); // Allow much faster upward movement
+
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                if (this.isShrinking) {
+                    this.radius -= this.shrinkRate;
+                    if (this.radius <= 0) {
+                        this.radius = 0;
+                        this.isShrinking = false;
+                    }
+                }
+
+                if (this.isFading) {
+                    this.opacity -= this.fadingSpeed;
+                    if (this.opacity <= 0) {
+                        this.opacity = 0;
+                        this.isFading = false;
+                    }
+                }
+
+                // Wrap particles to the bottom if they move off-screen
+                if (this.y < 0 - this.radius) {
+                    this.y = particleSystemHeight + this.radius;
+                    this.x = Math.random() * canvas.width;
+
+                    if (Math.random() < 0.05) { // Reduced leftward chance
+                        this.speedX = -(Math.random() * 0.3 + 0.2); // Random speed to the left
+                    } else {
+                        this.resetParticle();
+                    }
+                }
+
+                // Wrap particles to the sides if they move off-screen
+                if (this.x > canvas.width + this.radius) {
+                    this.x = 0 - this.radius;
+                    this.y = Math.random() * particleSystemHeight;
+                    this.resetParticle();
+                }
+
+                if (this.x < 0 - this.radius) {
+                    this.x = canvas.width + this.radius;
+                    this.y = Math.random() * particleSystemHeight;
+                    this.resetParticle();
+                }
+
+                this.draw();
+            }
+
+            resetParticle() {
+                this.opacity = Math.random() < 0.05 
+                    ? Math.random() * 0.2 + 0.3 
+                    : Math.random() * 0.4 + 0.6;
+                this.isFading = Math.random() < 0.2;
+                this.isShrinking = Math.random() < 0.15;
+                this.radius = Math.random() * 4 + 2;
+
+                this.isBlurred = Math.random() < 0.5;
+                if (this.isBlurred) {
+                    this.blur = Math.random() * 2.0 + 1;
+                } else {
+                    this.blur = Math.random() * 0.7 + 0.3;
+                }
+
+                this.speedX = (Math.random() - 0.3) * 0.25;
+                if (Math.random() < 0.2) { // Increased chance for faster speed on reset
+                    this.speedY = -Math.random() * 1.5 - 1.0; // Faster upward speed
+                    this.isFast = true;
+                } else {
+                    this.speedY = this.baseSpeedY - (Math.random() * 0.3);
+                    this.isFast = false;
+                }
+            }
+        }
+
+
+        class SplashParticle {
+          constructor(x, y) {
+            this.x = x;
+            this.y = y;
+
+            // Adjusted to make particles a bit larger on average
+            this.radius = 2.8 + Math.random() * 0.7; // Particles now around 2.8 to 3.5 in size
+            const angle = Math.random() * Math.PI * 2; // Random angle for circular spread
+            const speed = Math.random() * 1.5 + 1.2; // Adjusted speed for more consistency
+
+            this.speedX = Math.cos(angle) * speed;
+            this.speedY = Math.sin(angle) * speed;
+
+            // Random opacity for each particle between 0.5 and 1
+            this.opacity = Math.random() * 0.5 + 0.5; // Opacity ranges from 0.5 to 1
+          }
+
+          draw() {
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            ctx.shadowColor = "white";
+            ctx.shadowBlur = 2; // Subtle blur effect
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadowBlur to avoid affecting other drawings
+          }
+
+          update() {
+            this.x += this.speedX * 0.94; // Slightly increased damping to slow down movement more
+            this.y += this.speedY * 0.94; // Apply damping to slow down both directions
+            this.speedY += 0.025; // Reduced gravity effect for slower downward movement
+
+            // Increased shrink rate for quicker disappearance
+            this.radius -= 0.03; // Faster shrink rate, making particles disappear sooner
+
+            // Remove particle if it goes out of bounds or becomes too small
+            if (this.y - this.radius > canvas.height / 1.80 || this.radius <= 0) {
+              const index = splashParticlesArray.indexOf(this);
+              splashParticlesArray.splice(index, 1);
+            } else {
+              this.draw();
+            }
+          }
+
+        }
+
+        const flowingParticlesArray = [];
+        const numberOfFlowingParticles = 30;
+
+        for (let i = 0; i < numberOfFlowingParticles; i++) {
+          flowingParticlesArray.push(new FlowingParticle());
+        }
+
+        const splashParticlesArray = [];
+
+        function createSplash(x, y) {
+          const cellWidth = canvas.width / 3;
+          const cellHeight = (canvas.height / 1.8) / 3;
+          const column = Math.floor(x / cellWidth);
+          const row = Math.floor(y / cellHeight);
+          let soundFile;
+
+          if (row === 0) { // Top row
+            if (column === 0) { soundFile = 'c3'; }
+            else if (column === 1) { soundFile = 'g3'; }
+            else if (column === 2) { soundFile = 'a3'; }
+          } else if (row === 1) { // Middle row
+            if (column === 0) { soundFile = 'b2'; }
+            else if (column === 1) { soundFile = 'e3'; }
+            else if (column === 2) { soundFile = 'b3'; }
+          } else if (row === 2) { // Bottom row
+            if (column === 0) { soundFile = 'd3'; }
+            else if (column === 1) { soundFile = 'f3'; }
+            else if (column === 2) { soundFile = 'c4'; }
+          }
+
+          playSound(soundFile);
+
+          for (let i = 0; i < 55; i++) {
+            splashParticlesArray.push(new SplashParticle(x, y));
+          }
+        }
+
+        // Function to play the trail sound with a fade in
+        function playTrailSound() {
+          if (!trailSoundLoopBuffer || trailSoundSource) {
+            return; // Don't play if the sound hasn't been loaded or is already playing
+          }
+
+          trailSoundSource = audioContext.createBufferSource();
+          trailSoundSource.buffer = trailSoundLoopBuffer;
+          trailSoundGainNode = audioContext.createGain();
+
+          trailSoundSource.connect(trailSoundGainNode).connect(audioContext.destination);
+          trailSoundGainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          trailSoundGainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.5); // 1-second fade in
+          trailSoundSource.loop = true;
+          trailSoundSource.start(0);
+        }
+
+        // Function to stop the trail sound with a fade out
+        function stopTrailSound() {
+          if (trailSoundSource && trailSoundGainNode) {
+            trailSoundGainNode.gain.setValueAtTime(trailSoundGainNode.gain.value, audioContext.currentTime);
+            trailSoundGainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5); // 1-second fade out
+            trailSoundSource.stop(audioContext.currentTime + 1);
+            trailSoundSource.onended = function() {
+              trailSoundSource = null;
+              trailSoundGainNode = null;
+            };
+          }
+        }
+
+        // Function to play the trail sound with a delay
+        function playTrailSoundWithDelay() {
+          interactionStarted = true;
+          setTimeout(() => {
+            if (interactionStarted) {
+              playTrailSound();
+            }
+          }, interactionDelay);
+        }
+
+        // Function to stop the trail sound and reset the interaction flag
+        function stopTrailSoundAndResetInteraction() {
+          interactionStarted = false;
+          stopTrailSound();
+        }
+
+        // Event listeners for starting and stopping the trail sound with delay
+        canvas.addEventListener('mousedown', playTrailSoundWithDelay);
+        canvas.addEventListener('touchstart', playTrailSoundWithDelay, { passive: false });
+        document.addEventListener('mouseup', stopTrailSoundAndResetInteraction);
+        document.addEventListener('touchend', stopTrailSoundAndResetInteraction, { passive: false });
+
+
+        canvas.addEventListener('click', function (e) {
+          if (e.clientY < particleSystemHeight) {
+            createSplash(e.clientX, e.clientY);
+          }
+      });
+
+      canvas.addEventListener('touchstart', function (e) {
+          e.preventDefault();
+          if (e.touches[0].clientY < particleSystemHeight) {
+            createSplash(e.touches[0].clientX, e.touches[0].clientY);
+          }
+      }, { passive: false });
+
+      canvas.addEventListener('mousemove', function (e) {
+          if (e.clientY < particleSystemHeight) {
+            for (let i = 0; i < 3; i++) { // Use a smaller number for a thinner trail
+              splashParticlesArray.push(new SplashParticle(e.clientX, e.clientY));
+            }
+          }
+      });
+
+      canvas.addEventListener('touchmove', function (e) {
+          e.preventDefault();
+          if (e.touches[0].clientY < particleSystemHeight) {
+            for (let i = 0; i < 3; i++) { // Use a smaller number for a thinner trail
+              splashParticlesArray.push(new SplashParticle(e.touches[0].clientX, e.touches[0].clientY));
+            }
+          }
+      }, { passive: false });
+
+
+        function animateFlowingParticles() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          for (let i = 0; i < flowingParticlesArray.length; i++) {
+            flowingParticlesArray[i].update();
+          }
+
+          for (let i = 0; i < splashParticlesArray.length; i++) {
+            if (splashParticlesArray[i].y < particleSystemHeight + 30) { // Adjust this value as needed
+              splashParticlesArray[i].update();
+            } else {
+              // Remove the particle from the array if it's below the new particle system height threshold
+              splashParticlesArray.splice(i, 1);
+              i--; // Decrement i since the array length has changed
+            }
+
+          }
+
+          requestAnimationFrame(animateFlowingParticles);
+      }
+
+
+        animateFlowingParticles();
+      });
+
+    document.getElementById('closeButton').addEventListener('click', function() {
+        window.location.href = 'index.html';
+    });
+    
+
+
+  </script>
+</html>

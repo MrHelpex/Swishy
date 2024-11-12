@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Swishy">
+    
+    <link rel="apple-touch-icon" href="swishy.png">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Montserrat:300,400,500,600,700&display=swap" as="style" onload="this.rel='stylesheet'">
+    <link href="https://db.onlinewebfonts.com/c/a83356d725f309d4c24ac2daca70cd64?family=MuseoSansRounded-300" rel="stylesheet">
+    <link href="https://db.onlinewebfonts.com/c/a07bcad627607b6777616f8e058e8917?family=MuseoSansRounded-500" rel="stylesheet">
+
+    <title>Swishy</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: url('images/receiver.jpg') no-repeat center center;
+            background-size: cover;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Input styling */
+        input[type="text"],
+        input[type="tel"] {
+            position: absolute;
+            padding: 2vh 1vw; /* Increased padding for taller input fields */
+            font-size: 3.25vh;
+            width: 80vw;
+            border: none;
+            outline: none;
+            background-color: transparent;
+            color: white;
+            font-family: 'MuseoSansRounded-300', sans-serif;
+            line-height: 6vh; /* Increased line-height for taller input fields */
+        }
+
+        /* Placeholder styling with animation */
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+            font-family: 'MuseoSansRounded-300', sans-serif;
+            transition: transform 0.3s ease, font-size 0.3s ease, color 0.3s ease;
+            transform-origin: left bottom;
+        }
+
+        /* Animate placeholder on focus */
+        input:focus::placeholder {
+            transform: translateY(-4.25vh) scale(0.65);
+            font-size: 2.5vh;
+            color: rgba(255, 255, 255, 1);
+        }
+
+        /* Positioning of input fields */
+        #input-telefonnummer { top: 18.6vh; left: 4.3vw; }
+        #input-mottagare { top: 60.4vh; left: 4.3vw; }
+        #input-belopp { top: 34.3vh; left: 4.15vw; }
+        #input-meddelande { top: 44.93vh; left: 4.1vw; }
+        #undertext-input { top: 70vh; left: 4.3vw; display: none; }
+
+        .swisha-btn {
+            width: 90vw;
+            cursor: pointer;
+            position: fixed;
+            bottom: 6.2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+        }
+
+        iframe {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            z-index: 30;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Lock to portrait mode */
+        @media screen and (orientation: landscape) {
+            body {
+                transform: rotate(90deg);
+                transform-origin: left top;
+                width: 100vh;
+                height: 100vw;
+            }
+            input[type="text"],
+            input[type="tel"] {
+                font-size: 2vh;
+            }
+        }
+
+        /* Error message styling */
+        #error-message {
+            color: #ee837d;
+            display: none;
+            position: fixed;
+            left: 50%;
+            bottom: 15%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-family: 'MuseoSansRounded-300', sans-serif;
+            font-weight: 300;
+            font-size: 18px;
+            line-height: 1.8em;
+            max-height: 3.6em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 80vw;
+            padding: 0;
+            white-space: normal;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(0); }
+            10% { transform: translate(-2px, 0); }  /* Smaller left shake */
+            20% { transform: translate(2px, 0); }   /* Smaller right shake */
+            30% { transform: translate(-2px, 0); }
+            40% { transform: translate(2px, 0); }
+            50% { transform: translate(-2px, 0); }
+            60% { transform: translate(2px, 0); }
+            70% { transform: translate(-2px, 0); }
+            80% { transform: translate(2px, 0); }
+            100% { transform: translate(0); }
+        }
+
+        .shake {
+            animation: shake 0.75s; /* Duration remains the same */
+        }
+
+        
+
+    </style>
+</head>
+<body>
+    <div id="inputs-container">
+        <input type="tel" id="input-telefonnummer" placeholder="Mottagare" required>
+        <input type="text" id="input-mottagare" placeholder="Namn" required>
+        <input type="tel" id="input-belopp" inputmode="tel" placeholder="Belopp" required>
+        <div id="belopp-error-message" style="color: #ee837d; display: none; font-size: 12.2px; position: absolute; top: 43.3vh; left: 4.8vw; text-align: left; font-family: 'MuseoSansRounded-300', sans-serif;"></div>
+        <input type="text" id="input-meddelande" placeholder="Meddelande">
+        <input type="text" id="undertext-input" placeholder="Föreningsnamn" style="display: none;">
+        <div id="error-message"></div>
+        <img src="images/sendmoney.png" alt="Swisha Button" class="swisha-btn" id="showOverlay2Btn">
+    </div>
+    <iframe id="transactionFrame" style="display:none;"></iframe>
+
+    <script defer>
+        // Prevent default scrolling behavior
+        function preventScroll(e) {
+            const activeElement = document.activeElement;
+            const isInputField = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+
+            if (!isInputField) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+
+        window.addEventListener('wheel', preventScroll, { passive: false });
+        window.addEventListener('touchmove', preventScroll, { passive: false });
+
+        // Prevent key-based scrolling
+        window.addEventListener('keydown', function(e) {
+            const activeElement = document.activeElement;
+            const isInputField = activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA';
+
+            if (!isInputField && ['Space', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Audio setup and loading
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let audioBuffer;
+
+        const loadAudio = async () => {
+            if (!audioBuffer) {
+                const response = await fetch('sounds/Swish_SendMoney.mp3');
+                audioBuffer = await audioContext.decodeAudioData(await response.arrayBuffer());
+            }
+        };
+
+        window.addEventListener('load', loadAudio);
+
+        const playAudio = () => {
+            if (audioBuffer) {
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+            }
+        };
+
+        let hasPlayedSound = false;
+
+        document.getElementById('input-telefonnummer').addEventListener('input', function (e) {
+            let input = e.target;
+            let rawValue = input.value.replace(/\D/g, '');
+
+            if (rawValue.length > 10) {
+                rawValue = rawValue.slice(0, 10);
+            }
+
+            // Format the number based on the raw input
+            let displayValue = '';
+            if (rawValue.length === 0) {
+                displayValue = '';
+            } else if (rawValue.length <= 3) {
+                displayValue = rawValue;
+            } else if (rawValue.length <= 6) {
+                displayValue = rawValue.slice(0, 3) + ' ' + rawValue.slice(3);
+            } else if (rawValue.length <= 8) {
+                displayValue = rawValue.slice(0, 3) + ' ' + rawValue.slice(3, 6) + ' ' + rawValue.slice(6);
+            } else {
+                displayValue = rawValue.slice(0, 3) + ' ' + rawValue.slice(3, 6) + ' ' + rawValue.slice(6, 8) + ' ' + rawValue.slice(8);
+            }
+
+            input.value = displayValue.trim();
+
+            // Show undertext input if number starts with '123'
+            const undertextInput = document.getElementById('undertext-input');
+            undertextInput.style.display = rawValue.startsWith('123') ? 'block' : 'none';
+            if (undertextInput.style.display === 'none') {
+                undertextInput.value = '';
+            }
+        });
+
+        // Event listener for the Swisha button click
+        document.getElementById('showOverlay2Btn').addEventListener('click', async function () {
+            const mottagare = document.getElementById('input-mottagare').value;
+            const telefonnummer = document.getElementById('input-telefonnummer').value; // Get the displayed phone number
+            const belopp = document.getElementById('input-belopp').value.replace(/\s*kr$/, ''); // Strip " kr" from amount
+            const meddelande = document.getElementById('input-meddelande').value;
+            const displayUppercaseName = document.getElementById('undertext-input').value; // Get the undertext input value
+            const errorMessageDiv = document.getElementById('error-message');
+
+            // Validate inputs: Mottagare, belopp & namn are required
+            if (!mottagare || !telefonnummer || !belopp) {
+                errorMessageDiv.innerText = 'Mottagare, belopp & namn krävs.'; // Set error message
+                errorMessageDiv.style.display = 'block'; // Show error message
+                return; // Stop the function if any field is empty
+            }
+
+            errorMessageDiv.innerText = '';
+            errorMessageDiv.style.display = 'none'; // Hide error message for other fields
+
+            // Continue to the next validation step
+            const formattedBelopp = parseInt(belopp.replace(/\s/g, ''), 10);
+            if (formattedBelopp > 150000) {
+                // If the amount exceeds 150,000, show the error message under the belopp input
+                const beloppErrorMessageDiv = document.getElementById('belopp-error-message');
+                beloppErrorMessageDiv.innerText = '150 000 kr är det högsta beloppet du kan swisha.';
+                beloppErrorMessageDiv.style.display = 'block'; // Show error message for amount
+                // Disable the Swisha button
+                document.getElementById('showOverlay2Btn').disabled = true;
+                return; // Stop the function if the amount exceeds the limit
+            }
+
+            // Hide belopp error message if the amount is valid
+            document.getElementById('belopp-error-message').style.display = 'none';
+            // Enable the Swisha button
+            document.getElementById('showOverlay2Btn').disabled = false;
+            
+            let formattedPhoneNumber = telefonnummer.replace(/\s/g, ''); // Remove spaces
+            let displayPhoneNumber;
+
+            if (formattedPhoneNumber.startsWith('0')) {
+                formattedPhoneNumber = '+46' + formattedPhoneNumber.slice(1); // Replace leading '0' with '+46'
+                displayPhoneNumber = formattedPhoneNumber.replace(/^\+46(\d{2})(\d{3})(\d{2})(\d{2})$/, '+46 $1 $2 $3 $4');
+            } else if (formattedPhoneNumber.startsWith('123')) {
+                displayPhoneNumber = formattedPhoneNumber.replace(/^(123)(\d{3})(\d{2})(\d{2})$/, '$1 $2 $3 $4');
+            } else {
+                formattedPhoneNumber = '+46' + formattedPhoneNumber;
+                displayPhoneNumber = formattedPhoneNumber.replace(/^\+46(\d{2})(\d{3})(\d{2})(\d{2})$/, '+46 $1 $2 $3 $4');
+            }
+
+            const url = `transaction.html?mottagare=${encodeURIComponent(mottagare)}&telefonnummer=${encodeURIComponent(displayPhoneNumber)}&belopp=${encodeURIComponent(belopp)}&meddelande=${encodeURIComponent(meddelande)}&displayUppercaseName=${encodeURIComponent(displayUppercaseName)}`;
+            const iframe = document.getElementById('transactionFrame');
+            iframe.src = url;
+            iframe.style.display = 'block';
+
+            await loadAudio();
+
+            iframe.onload = function () {
+                if (!hasPlayedSound) {
+                    playAudio();
+                    hasPlayedSound = true;
+                }
+            };
+        });
+
+        // Amount formatting logic
+        document.getElementById('input-belopp').addEventListener('input', function (e) {
+            let input = e.target;
+            let rawValue = input.value.replace(/\D/g, ''); // Remove non-digit characters
+
+            // Check if the entered amount exceeds 150,000
+            const beloppErrorMessageDiv = document.getElementById('belopp-error-message');
+            const maxBelopp = 150000;
+
+            if (rawValue && parseInt(rawValue) > maxBelopp) {
+                beloppErrorMessageDiv.innerText = '150 000 kr är det högsta beloppet du kan swisha.';
+                beloppErrorMessageDiv.style.display = 'block'; // Show error message for amount
+                shakeElement(beloppErrorMessageDiv); // Call the shake function
+                // Disable the Swisha button
+                document.getElementById('showOverlay2Btn').disabled = true;
+            } else {
+                beloppErrorMessageDiv.style.display = 'none'; // Hide error message if within limit
+                // Enable the Swisha button if all conditions are satisfied
+                const mottagare = document.getElementById('input-mottagare').value;
+                const telefonnummer = document.getElementById('input-telefonnummer').value;
+                if (mottagare && telefonnummer && rawValue) {
+                    document.getElementById('showOverlay2Btn').disabled = false;
+                }
+            }
+
+            if (!rawValue) {
+                input.value = '';
+                beloppErrorMessageDiv.style.display = 'none'; // Hide error message if input is empty
+                // Disable the Swisha button
+                document.getElementById('showOverlay2Btn').disabled = true;
+                return;
+            }
+
+            const formattedValue = new Intl.NumberFormat('sv-SE').format(rawValue) + ' kr';
+            input.value = formattedValue;
+
+            const cursorPosition = formattedValue.length - 3; // Place cursor before " kr"
+            input.setSelectionRange(cursorPosition, cursorPosition);
+        });
+
+        // Disable the button on load
+        document.getElementById('showOverlay2Btn').disabled = true;
+
+        // Function to apply shake effect
+        function shakeElement(element) {
+            element.classList.add('shake');
+            setTimeout(() => {
+                element.classList.remove('shake');
+            }, 750); // Duration of shake effect
+        }
+
+
+        // Handle backspacing and cursor management
+        document.getElementById('input-belopp').addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                const input = e.target;
+                const value = input.value.replace(/\D/g, ''); // Remove non-digits
+                const cursorPosition = input.selectionStart;
+
+                if (cursorPosition > 0 && cursorPosition <= value.length) {
+                    const digitsBeforeCursor = value.slice(0, cursorPosition).replace(/\D/g, '').length;
+                    const spacesToRemove = Math.floor(digitsBeforeCursor / 3); // Each group of 3 digits gets a space
+                    const adjustedPosition = cursorPosition - spacesToRemove;
+
+                    input.setSelectionRange(adjustedPosition, adjustedPosition);
+                }
+            }
+        });
+        </script>
+    </body>
+</html>
